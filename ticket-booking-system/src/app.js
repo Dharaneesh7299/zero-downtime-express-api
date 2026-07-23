@@ -1,9 +1,11 @@
 const express = require("express");
+const adminRoutes = require("./routes/adminRoutes");
 const ticketRoutes = require("./routes/ticketRoutes");
 
 const app = express();
 app.use(express.json());
-app.use(ticketRoutes);
+app.use('/admin',adminRoutes);
+app.use('/ticket',ticketRoutes);
 
 app.get('/',(req,res)=>{
     res.status(200).json({

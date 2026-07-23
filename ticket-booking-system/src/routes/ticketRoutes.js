@@ -1,13 +1,14 @@
-const express = require("express");
+const express = require('express');
+const { buyTicket } = require("../controller/ticketController");
 
 const router = express.Router();
 
-const {resetInventory,getInventory} = require("../controller/ticketController");
-
-router.post("/admin/reset",resetInventory);
-router.get('/admin/get',getInventory);
-router.get("/test", (req, res) => {
-    res.send("Working");
+router.post('/buy',buyTicket);
+router.get('/test',(req,res)=>{
+    return res.status(200).json({
+        success : true,
+        message : "ticket router working"
+    });
 });
 
-module.exports = router;
+module.exports = router
