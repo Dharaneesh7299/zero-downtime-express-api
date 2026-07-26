@@ -10,6 +10,8 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
-    "dotenv": "^17.4.2"
+    "connect-redis": "^9.0.0",
+    "dotenv": "^17.4.2",
+    "express-session": "^1.19.0"
   }
 }
