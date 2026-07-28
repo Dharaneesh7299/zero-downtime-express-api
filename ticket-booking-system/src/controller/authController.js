@@ -1,15 +1,16 @@
 const { connect } = require("mongoose");
 
 async function login(req,res) {
-    const {username} = req.body;
-    if (!username){
+    const {username,role} = req.body;
+    if (!username || !role){
         return res.status(400).json({
             success : false,
-            message : "username is required"
+            message : "username/role is required"
         });
     }
 
     req.session.username = username;
+    req.session.role = role;
 
     return res.status(200).json({
         success : true,

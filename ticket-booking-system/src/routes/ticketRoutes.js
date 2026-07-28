@@ -1,6 +1,6 @@
 const express = require('express');
 const { buyTicket } = require("../controller/ticketController");
-const isAuthenticated = require("../middleware/authMiddleware");
+const {isAuthenticated} = require("../middleware/authMiddleware");
 
 const router = express.Router();
 

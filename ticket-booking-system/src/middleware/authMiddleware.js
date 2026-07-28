@@ -8,4 +8,17 @@ function isAuthenticated(req,res,next) {
     next();
 }
 
-module.exports = isAuthenticated;
+function isAdmin(req,res,next) {
+    if (req.session.role != "admin"){
+        return res.status(403).json({
+            success : false,
+            message : "access denied , admin only"
+        });
+    }
+    next();
+}
+
+module.exports = {
+    isAuthenticated,
+    isAdmin
+};
