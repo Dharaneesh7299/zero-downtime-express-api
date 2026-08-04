@@ -1,4 +1,16 @@
 const { connect } = require("mongoose");
+const prisma = require("../config/prisma");
+const bcrypt = require("bcrypt");
+
+async function register(req,res) {
+    const {username,email,password} = req.body;
+
+    const user = await prisma.user.findUnique({
+        where : {
+            email : email
+        }
+    })
+}
 
 async function login(req,res) {
     const {username,role} = req.body;
