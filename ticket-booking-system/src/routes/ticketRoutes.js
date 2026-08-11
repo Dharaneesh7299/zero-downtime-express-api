@@ -1,10 +1,11 @@
 const express = require('express');
-const { buyTicket } = require("../controller/ticketController");
+const { buyTicket , getBookings } = require("../controller/ticketController");
 const {isAuthenticated} = require("../middleware/authMiddleware");
 
 const router = express.Router();
 
 router.post('/buy',isAuthenticated,buyTicket);
+router.get('/bookings',isAuthenticated,getBookings)
 router.get('/test',(req,res)=>{
     return res.status(200).json({
         success : true,

@@ -1,5 +1,6 @@
 const fs = require("fs");
 const path = require("path");
+const prisma = require("../config/prisma");
 
 const redisClient = require("../config/redis");
 
@@ -40,22 +41,61 @@ async function buyTicket(req, res) {
             });
         }
 
+        const booking = await prisma.booking.create({
+            data : {
+                userID : req.session.user.id,
+                quantity : tickets
+            }
+        });
+
         return res.status(200).json({
             success: true,
             message: "Tickets purchased successfully.",
+            bookingId: booking.id,
+            quantity: booking.quantity,
             remainingTickets: result
         });
 
     } 
     
     catch (err) {
+        console.error(err);
         return res.status(500).json({
             success: false,
-            message: err.message
+            message: "Failed to complete booking."
+        });
+    }
+}
+
+async function getBookings(req,res) {
+    try {
+        const userID = req.session.user.id;
+
+        const bookings = await prisma.booking.findMany({
+            where : {
+                userID : userID
+            },
+            orderBy : {
+                createdAt : "desc"
+            }
+        });
+
+        return res.status(200).json({
+            success: true,
+            bookings : bookings
+        });
+    } 
+    catch(err){
+        console.error("Get bookings error:", err);
+
+        return res.status(500).json({
+            success: false,
+            message: "Failed to fetch booking history."
         });
     }
 }
 
 module.exports = {
-    buyTicket
+    buyTicket,
+    getBookings
 };

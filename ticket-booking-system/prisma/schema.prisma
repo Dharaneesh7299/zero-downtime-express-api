@@ -7,20 +7,26 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model User {
+  id        Int       @id @default(autoincrement())
+  username  String    @unique
+  email     String    @unique
+  password  String
+  role      Role      @default(USER)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  bookings  Booking[]
+}
+
+model Booking {
+  id        Int      @id @default(autoincrement())
+  userID    Int
+  quantity  Int
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userID], references: [id])
+}
+
 enum Role {
   USER
   ADMIN
-}
-
-model User {
-  id        Int      @id @default(autoincrement())
-
-  username  String   @unique
-  email     String   @unique
-  password  String
-
-  role      Role     @default(USER)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
 }

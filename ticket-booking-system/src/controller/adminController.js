@@ -109,10 +109,43 @@ async function getInventory(req,res) {
     }
 };
 
+async function getAllBookings(req, res) {
+    try {
+        const bookings = await prisma.booking.findMany({
+            orderBy: {
+                createdAt: "desc"
+            },
+            include: {
+                user: {
+                    select: {
+                        id: true,
+                        username: true,
+                        email: true
+                    }
+                }
+            }
+        });
+
+        return res.status(200).json({
+            success: true,
+            bookings
+        });
+
+    } catch (err) {
+        console.error("Get all bookings error:", err);
+
+        return res.status(500).json({
+            success: false,
+            message: "Failed to fetch bookings."
+        });
+    }
+}
+
 
 
 module.exports = {
     updateRole,
     resetInventory,
-    getInventory
+    getInventory,
+    getAllBookings
 };
