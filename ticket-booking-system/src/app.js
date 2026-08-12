@@ -13,8 +13,10 @@ app.use('/ticket',ticketRoutes);
 app.use('/auth',authRoutes);
 
 app.get('/',(req,res)=>{
+
     res.status(200).json({
-        message : "the ticket booking server is running"
+        message : "the ticket booking server is running",
+        workerPID: process.pid
     });
 });
 
