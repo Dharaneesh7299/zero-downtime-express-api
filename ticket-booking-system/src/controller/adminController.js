@@ -1,7 +1,7 @@
 const { json } = require("express");
 const redisClient = require("../config/redis");
 const prisma = require("../config/prisma");
-const { exec } = require("npx/child");
+const { exec } = require("child_process");
 
 const TICKETS_KEY = process.env.TICKETS_KEY;
 

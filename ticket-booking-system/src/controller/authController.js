@@ -1,4 +1,3 @@
-const { connect } = require("mongoose");
 const prisma = require("../config/prisma");
 const bcrypt = require("bcrypt");
 const { json } = require("node:stream/consumers");
