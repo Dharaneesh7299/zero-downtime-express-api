@@ -28,8 +28,10 @@ jobs:
         run: |
           docker build \
             -t ghcr.io/dharaneesh7299/ticket-booking-api:latest \
+            -t ghcr.io/dharaneesh7299/ticket-booking-api:${{ github.sha }} \
             ./ticket-booking-system
 
-      - name: Push Docker image
+      - name: Push Docker images
         run: |
           docker push ghcr.io/dharaneesh7299/ticket-booking-api:latest
+          docker push ghcr.io/dharaneesh7299/ticket-booking-api:${{ github.sha }}
