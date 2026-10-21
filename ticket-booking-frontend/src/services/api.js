@@ -1,15 +1,35 @@
 import { API_BASE_URL } from "../config/api";
 
 /**
- * Fetch current ticket inventory for a given event ID.
+ * Fetch all available events and real-time inventory from backend.
+ * @returns {Promise<Array<{ id: string, eventId: string, available: number, name: string, category: string, date: string, location: string, price: number }>>}
+ */
+export async function fetchEvents() {
+  const response = await fetch(`${API_BASE_URL}/api/events?_t=${Date.now()}`, {
+    headers: {
+      Accept: "application/json",
+      "Cache-Control": "no-cache",
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch events: HTTP ${response.status}`);
+  }
+
+  return response.json();
+}
+
+/**
+ * Fetch current ticket inventory for a single given event ID.
  * @param {string|number} eventId
- * @returns {Promise<{ eventId: string, available: number }>}
+ * @returns {Promise<{ eventId: string, available: number }|null>}
  */
 export async function fetchInventory(eventId) {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/events/${eventId}/inventory`, {
+    const response = await fetch(`${API_BASE_URL}/api/events/${eventId}/inventory?_t=${Date.now()}`, {
       headers: {
         Accept: "application/json",
+        "Cache-Control": "no-cache",
       },
     });
 
@@ -21,6 +41,60 @@ export async function fetchInventory(eventId) {
   } catch {
     return null;
   }
+}
+
+/**
+ * Admin action: Initialize or update ticket inventory for an event.
+ * @param {Object} params
+ * @param {string} params.eventId
+ * @param {number} params.quantity
+ * @param {Object} [params.metadata]
+ * @param {string} params.token
+ * @returns {Promise<{ message: string, eventId: string, available: number }>}
+ */
+export async function adminSetInventory({ eventId, quantity, metadata = {}, token }) {
+  const response = await fetch(`${API_BASE_URL}/api/admin/events/${eventId}/inventory`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({
+      quantity: Number(quantity),
+      ...metadata,
+    }),
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error || `Failed to set inventory: HTTP ${response.status}`);
+  }
+
+  return data;
+}
+
+/**
+ * Admin action: Delete/clear ticket inventory for an event.
+ * @param {Object} params
+ * @param {string} params.eventId
+ * @param {string} params.token
+ */
+export async function adminDeleteInventory({ eventId, token }) {
+  const response = await fetch(`${API_BASE_URL}/api/admin/events/${eventId}/inventory`, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: "application/json",
+    },
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error || `Failed to delete inventory: HTTP ${response.status}`);
+  }
+
+  return data;
 }
 
 /**
@@ -143,4 +217,30 @@ export async function confirmReservation(reservationId, token) {
   }
 
   return data;
+}
+
+/**
+ * Fetch confirmed orders/bookings for the current user.
+ * @param {string} token
+ * @returns {Promise<Array>}
+ */
+export async function fetchUserOrders(token) {
+  if (!token) return [];
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/orders?_t=${Date.now()}`, {
+      headers: {
+        Accept: "application/json",
+        Authorization: `Bearer ${token}`,
+        "Cache-Control": "no-cache",
+      },
+    });
+
+    if (!response.ok) {
+      return [];
+    }
+
+    return await response.json();
+  } catch {
+    return [];
+  }
 }

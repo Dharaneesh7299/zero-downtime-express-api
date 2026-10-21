@@ -16,12 +16,64 @@ const confirmScript = fs.readFileSync(
   "utf8"
 );
 
-async function setInventory(eventId, quantity) {
+async function setInventory(eventId, quantity, metadata = null) {
   const key = `inventory:${eventId}`;
 
   await redis.set(key, String(quantity));
 
-  return { eventId, available: quantity };
+  if (metadata && typeof metadata === "object") {
+    await redis.set(`event:meta:${eventId}`, JSON.stringify(metadata));
+  }
+
+  return { eventId, available: quantity, metadata };
+}
+
+async function deleteInventory(eventId) {
+  const key = `inventory:${eventId}`;
+  const metaKey = `event:meta:${eventId}`;
+  await redis.del(key);
+  await redis.del(metaKey);
+  return { eventId, deleted: true };
+}
+
+async function getAllInventory() {
+  const keys = await redis.keys("inventory:*");
+  if (!keys || keys.length === 0) {
+    return [];
+  }
+
+  const items = [];
+  for (const key of keys) {
+    const eventId = key.replace(/^inventory:/, "");
+    const available = await redis.get(key);
+    if (available !== null && Number(available) > 0) {
+      const metaStr = await redis.get(`event:meta:${eventId}`);
+      let metadata = null;
+      if (metaStr) {
+        try {
+          metadata = JSON.parse(metaStr);
+        } catch {
+          // ignore parsing error
+        }
+      }
+
+      items.push({
+        id: eventId,
+        eventId,
+        available: Number(available),
+        name: metadata?.name || eventId,
+        category: metadata?.category || "Live Event",
+        icon: metadata?.icon || "🎟️",
+        date: metadata?.date || "Upcoming",
+        location: metadata?.location || "Venue TBA",
+        price: typeof metadata?.price === "number" ? metadata.price : 0,
+        type: metadata?.type || "Standard Admission",
+      });
+    }
+  }
+
+  items.sort((a, b) => a.eventId.localeCompare(b.eventId));
+  return items;
 }
 
 async function getInventory(eventId) {
@@ -152,7 +204,9 @@ async function confirmReservation(reservationId) {
 
 module.exports = {
   setInventory,
+  deleteInventory,
   getInventory,
+  getAllInventory,
   reserveTickets,
   getReservation,
   confirmReservation,

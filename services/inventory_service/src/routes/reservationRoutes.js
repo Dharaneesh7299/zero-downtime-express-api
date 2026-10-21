@@ -14,6 +14,20 @@ router.put(
   controller.initializeInventory
 );
 
+// Only authenticated administrators can delete/clear inventory.
+router.delete(
+  "/admin/events/:eventId/inventory",
+  authenticateToken,
+  requireRole("ADMIN"),
+  controller.deleteInventory
+);
+
+// List all available event inventories.
+router.get(
+  "/events",
+  controller.getAllInventory
+);
+
 // Inventory can be viewed publicly.
 router.get(
   "/events/:eventId/inventory",
@@ -41,6 +55,13 @@ router.post(
   "/reservations/:reservationId/confirm",
   authenticateToken,
   controller.confirmReservation
+);
+
+// Get orders / bookings for the currently authenticated user
+router.get(
+  "/orders",
+  authenticateToken,
+  controller.getUserOrders
 );
 
 module.exports = router;

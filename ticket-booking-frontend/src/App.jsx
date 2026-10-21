@@ -1,18 +1,23 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { BrowserRouter, Routes, Route, Link, useLocation } from "react-router-dom";
 import { AuthProvider } from "./context/AuthProvider";
 import { useAuth } from "./context/useAuth";
 import AuthModal from "./components/AuthModal";
+import AdminAddTicketsModal from "./components/AdminAddTicketsModal";
 import Events from "./pages/Events";
 import Bookings from "./pages/Bookings";
-import { reserveTickets, confirmReservation } from "./services/api";
+import { fetchEvents, fetchUserOrders, reserveTickets, confirmReservation } from "./services/api";
 import "./App.css";
 
-const STORAGE_BOOKINGS_KEY = "ticket_bookings_history";
-
 function AppContent() {
-  const { user, isAuthenticated, logout, openAuthModal, token } = useAuth();
+  const { user, isAuthenticated, isAdmin, logout, openAuthModal, token } = useAuth();
   const location = useLocation();
+
+  const [events, setEvents] = useState([]);
+  const [isEventsLoading, setIsEventsLoading] = useState(true);
+  const [eventsError, setEventsError] = useState("");
+  const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
+  const [editingEvent, setEditingEvent] = useState(null);
 
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [ticketQuantity, setTicketQuantity] = useState(1);
@@ -24,23 +29,78 @@ function AppContent() {
   const userInitial = (userEmail ? userEmail[0] : (user?.role ? user.role[0] : "U")).toUpperCase();
   const userDisplay = userEmail || (user?.id ? `User #${user.id.slice(0, 6)}` : "My Account");
 
-  const [bookings, setBookings] = useState(() => {
+  const currentUserId = isAuthenticated && user?.id ? user.id : null;
+
+  // User-isolated bookings map: { [userId]: Array }
+  const [userBookingsMap, setUserBookingsMap] = useState(() => {
     try {
-      const stored = localStorage.getItem(STORAGE_BOOKINGS_KEY);
-      return stored ? JSON.parse(stored) : [];
-    } catch {
-      return [];
-    }
+      localStorage.removeItem("ticket_bookings_history");
+    } catch {}
+    return {};
   });
 
-  // Sync bookings to localStorage
-  useEffect(() => {
+  // Current active user's bookings: strictly empty array when logged out
+  const bookings = currentUserId
+    ? (userBookingsMap[currentUserId] || (() => {
+        try {
+          const stored = localStorage.getItem(`ticket_bookings_${currentUserId}`);
+          return stored ? JSON.parse(stored) : [];
+        } catch {
+          return [];
+        }
+      })())
+    : [];
+
+  const handleRefreshOrders = useCallback(async () => {
+    if (!currentUserId || !token) return;
     try {
-      localStorage.setItem(STORAGE_BOOKINGS_KEY, JSON.stringify(bookings));
-    } catch {
-      // Ignore storage errors
-    }
-  }, [bookings]);
+      const serverOrders = await fetchUserOrders(token);
+      if (Array.isArray(serverOrders)) {
+        setUserBookingsMap((prev) => {
+          let existing = prev[currentUserId];
+          if (!existing) {
+            try {
+              const s = localStorage.getItem(`ticket_bookings_${currentUserId}`);
+              existing = s ? JSON.parse(s) : [];
+            } catch {
+              existing = [];
+            }
+          }
+
+          const map = new Map();
+          for (const item of existing) {
+            const key = item.bookingId || item.reservationId || item.id;
+            if (key) map.set(key, item);
+          }
+          for (const order of serverOrders) {
+            const key = order.bookingId || order.reservationId || order.id;
+            if (key) {
+              const current = map.get(key);
+              if (current && current.status === "CONFIRMED" && order.status === "PENDING") {
+                map.set(key, { ...order, status: "CONFIRMED" });
+              } else {
+                map.set(key, order);
+              }
+            }
+          }
+          const merged = Array.from(map.values()).sort(
+            (a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0)
+          );
+
+          try {
+            localStorage.setItem(`ticket_bookings_${currentUserId}`, JSON.stringify(merged));
+          } catch {}
+
+          return { ...prev, [currentUserId]: merged };
+        });
+      }
+    } catch {}
+  }, [currentUserId, token]);
+
+  // Synchronize bookings strictly for the active authenticated user
+  useEffect(() => {
+    handleRefreshOrders();
+  }, [handleRefreshOrders]);
 
   function showToast(msg) {
     setToastMessage(msg);
@@ -48,6 +108,43 @@ function AppContent() {
       setToastMessage("");
     }, 4000);
   }
+
+  const loadLiveEvents = useCallback(async () => {
+    try {
+      const data = await fetchEvents();
+      setEvents(Array.isArray(data) ? data : []);
+      setEventsError("");
+    } catch (err) {
+      setEventsError(err.message || "Failed to load live event tickets");
+    } finally {
+      setIsEventsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    let ignore = false;
+    fetchEvents()
+      .then((data) => {
+        if (!ignore) {
+          setEvents(Array.isArray(data) ? data : []);
+          setEventsError("");
+        }
+      })
+      .catch((err) => {
+        if (!ignore) {
+          setEventsError(err.message || "Failed to load live event tickets");
+        }
+      })
+      .finally(() => {
+        if (!ignore) {
+          setIsEventsLoading(false);
+        }
+      });
+
+    return () => {
+      ignore = true;
+    };
+  }, []);
 
   function handleOpenBooking(event) {
     setSelectedEvent(event);
@@ -57,6 +154,11 @@ function AppContent() {
     if (!isAuthenticated) {
       openAuthModal("Please sign in or register to complete your ticket booking.");
     }
+  }
+
+  function handleEditEvent(event) {
+    setEditingEvent(event);
+    setIsAdminModalOpen(true);
   }
 
   async function handleConfirmBooking() {
@@ -73,33 +175,52 @@ function AppContent() {
     try {
       // 1. Reserve tickets with backend
       const reserveData = await reserveTickets({
-        eventId: selectedEvent.id,
+        eventId: selectedEvent.id || selectedEvent.eventId,
         quantity: ticketQuantity,
         token,
         idempotencyKey,
       });
 
       const reservationId =
+        reserveData?.reservation?.reservationId ||
         reserveData?.reservation?.id ||
-        reserveData?.reservationId ||
-        `res-${Date.now()}`;
+        reserveData?.reservationId;
+
+      if (!reservationId) {
+        throw new Error("Backend did not return a valid reservation ID.");
+      }
 
       // 2. Confirm reservation with backend
       await confirmReservation(reservationId, token);
 
-      // 3. Save confirmed booking
+      // 3. Save confirmed booking strictly mapped to current user
       const newBooking = {
         bookingId: reservationId,
+        reservationId,
+        userId: user.id,
         event: selectedEvent,
         quantity: ticketQuantity,
-        totalPrice: selectedEvent.price * ticketQuantity,
+        totalPrice: (selectedEvent.price || 0) * ticketQuantity,
         status: "CONFIRMED",
         createdAt: new Date().toISOString(),
       };
 
-      setBookings((prev) => [newBooking, ...prev]);
+      setUserBookingsMap((prev) => {
+        const userList = prev[user.id] || bookings;
+        const updated = [newBooking, ...userList.filter((b) => (b.bookingId || b.reservationId) !== reservationId)];
+        if (user?.id) {
+          try {
+            localStorage.setItem(`ticket_bookings_${user.id}`, JSON.stringify(updated));
+          } catch {}
+        }
+        return { ...prev, [user.id]: updated };
+      });
       setSelectedEvent(null);
       showToast(`🎉 Booking confirmed! Reservation ID: ${reservationId.substring(0, 8)}...`);
+
+      // 4. Refresh live inventory counts & server orders
+      await loadLiveEvents();
+      await handleRefreshOrders();
     } catch (err) {
       setBookingError(err.message || "Failed to confirm reservation with backend.");
     } finally {
@@ -107,25 +228,72 @@ function AppContent() {
     }
   }
 
+  async function handleConfirmReservation(reservationId) {
+    if (!token) return;
+    try {
+      showToast("⏳ Confirming reservation with server...");
+      await confirmReservation(reservationId, token);
+      showToast("🎉 Reservation successfully confirmed!");
+      await handleRefreshOrders();
+      await loadLiveEvents();
+    } catch (err) {
+      showToast(`❌ Confirmation failed: ${err.message || "Please try again"}`);
+    }
+  }
+
   function handleDemoFallbackBooking() {
+    if (!user?.id) return;
     const fallbackId = `demo-${Date.now()}`;
     const newBooking = {
       bookingId: fallbackId,
+      reservationId: fallbackId,
+      userId: user.id,
       event: selectedEvent,
       quantity: ticketQuantity,
-      totalPrice: selectedEvent.price * ticketQuantity,
+      totalPrice: (selectedEvent.price || 0) * ticketQuantity,
       status: "CONFIRMED (DEMO)",
       createdAt: new Date().toISOString(),
     };
 
-    setBookings((prev) => [newBooking, ...prev]);
+    setUserBookingsMap((prev) => {
+      const userList = prev[user.id] || bookings;
+      const updated = [newBooking, ...userList];
+      try {
+        localStorage.setItem(`ticket_bookings_${user.id}`, JSON.stringify(updated));
+      } catch {}
+      return { ...prev, [user.id]: updated };
+    });
     setSelectedEvent(null);
     showToast("🎉 Booking saved in demo mode!");
+  }
+
+  function handleLogout() {
+    setBookings([]);
+    logout();
   }
 
   return (
     <div className="app-container">
       <AuthModal />
+
+      <AdminAddTicketsModal
+        key={editingEvent ? (editingEvent.id || editingEvent.eventId) : "new"}
+        isOpen={isAdminModalOpen}
+        onClose={() => {
+          setIsAdminModalOpen(false);
+          setEditingEvent(null);
+        }}
+        onInventoryUpdated={(eventId, qty, action) => {
+          loadLiveEvents();
+          if (action === "deleted") {
+            showToast(`🗑️ Event #${eventId} deleted from inventory!`);
+          } else {
+            showToast(`✅ Tickets updated for #${eventId} (${qty} available)!`);
+          }
+        }}
+        existingEvents={events}
+        initialEvent={editingEvent}
+      />
 
       {toastMessage && (
         <div className="toast-notification" role="status">
@@ -159,7 +327,7 @@ function AppContent() {
             className={`nav-link ${location.pathname === "/bookings" ? "active" : ""}`}
           >
             My Bookings
-            {bookings.length > 0 && (
+            {isAuthenticated && bookings.length > 0 && (
               <span className="nav-badge">{bookings.length}</span>
             )}
           </Link>
@@ -167,16 +335,31 @@ function AppContent() {
           <div className="nav-auth-section">
             {isAuthenticated ? (
               <div className="user-profile-menu">
+                {isAdmin && (
+                  <button
+                    type="button"
+                    className="admin-nav-btn"
+                    onClick={() => {
+                      setEditingEvent(null);
+                      setIsAdminModalOpen(true);
+                    }}
+                    title="Add or update tickets in backend inventory"
+                  >
+                    <span className="admin-btn-icon">+</span>
+                    <span>Add Tickets</span>
+                  </button>
+                )}
                 <div className="user-chip" title={userDisplay}>
                   <span className="user-avatar-circle">
                     {userInitial}
                   </span>
                   <span className="user-email-text">{userDisplay}</span>
+                  {isAdmin && <span className="admin-role-badge">ADMIN</span>}
                 </div>
                 <button
                   type="button"
                   className="sign-out-btn"
-                  onClick={logout}
+                  onClick={handleLogout}
                   aria-label="Sign out"
                 >
                   Sign Out
@@ -197,8 +380,32 @@ function AppContent() {
 
       {/* Routes */}
       <Routes>
-        <Route path="/" element={<Events onBook={handleOpenBooking} />} />
-        <Route path="/bookings" element={<Bookings bookings={bookings} />} />
+        <Route
+          path="/"
+          element={
+            <Events
+              events={events}
+              loading={isEventsLoading}
+              error={eventsError}
+              onBook={handleOpenBooking}
+              onOpenAdmin={() => {
+                setEditingEvent(null);
+                setIsAdminModalOpen(true);
+              }}
+              onEdit={handleEditEvent}
+            />
+          }
+        />
+        <Route
+          path="/bookings"
+          element={
+            <Bookings
+              bookings={bookings}
+              onConfirmReservation={handleConfirmReservation}
+              onRefreshOrders={handleRefreshOrders}
+            />
+          }
+        />
       </Routes>
 
       {/* Booking Confirmation Modal */}
@@ -237,7 +444,7 @@ function AppContent() {
                 </div>
                 <div>
                   <small>Price per ticket</small>
-                  <p>₹{selectedEvent.price.toLocaleString("en-IN")}</p>
+                  <p>₹{Number(selectedEvent.price || 0).toLocaleString("en-IN")}</p>
                 </div>
                 <div>
                   <small>Availability</small>
@@ -273,7 +480,7 @@ function AppContent() {
               <div className="booking-price-summary">
                 <span>Total Amount:</span>
                 <strong className="total-amount">
-                  ₹{(selectedEvent.price * ticketQuantity).toLocaleString("en-IN")}
+                  ₹{((selectedEvent.price || 0) * ticketQuantity).toLocaleString("en-IN")}
                 </strong>
               </div>
             </div>
@@ -284,7 +491,7 @@ function AppContent() {
                 <p>⚠️ <strong>Backend Error:</strong> {bookingError}</p>
                 {bookingError.toLowerCase().includes("not been initialized") && (
                   <p className="error-tip">
-                    Note: Backend inventory must be initialized by admin via <code>PUT /api/admin/events/{selectedEvent.id}/inventory</code>.
+                    Note: Backend inventory must be initialized by admin via <code>PUT /api/admin/events/{selectedEvent.id || selectedEvent.eventId}/inventory</code>.
                   </p>
                 )}
                 <button

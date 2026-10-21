@@ -1,60 +1,32 @@
-import { useState, useEffect } from "react";
-import initialEvents from "../data/events";
+import { useState } from "react";
 import EventCard from "../components/EventCard";
-import { fetchInventory } from "../services/api";
+import { useAuth } from "../context/useAuth";
 
-function Events({ onBook }) {
+function Events({ events = [], loading = false, error = "", onBook, onOpenAdmin, onEdit }) {
+  const { isAdmin } = useAuth();
   const [search, setSearch] = useState("");
-  const [eventsList, setEventsList] = useState(initialEvents);
 
-  useEffect(() => {
-    let isMounted = true;
+  // Only show events that have available tickets in the backend inventory
+  const availableEvents = events.filter((event) => Number(event.available) > 0);
 
-    async function loadLiveInventories() {
-      try {
-        const updated = await Promise.all(
-          initialEvents.map(async (event) => {
-            try {
-              const live = await fetchInventory(event.id);
-              if (live && typeof live.available === "number") {
-                return { ...event, available: live.available };
-              }
-            } catch {
-              // Gracefully keep mock count if inventory endpoint is not yet initialized
-            }
-            return event;
-          })
-        );
-
-        if (isMounted) {
-          setEventsList(updated);
-        }
-      } catch {
-        // Fallback to initial events
-      }
-    }
-
-    loadLiveInventories();
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
-
-  const filteredEvents = eventsList.filter((event) =>
-    event.name.toLowerCase().includes(search.toLowerCase()) ||
-    event.location.toLowerCase().includes(search.toLowerCase()) ||
-    event.category.toLowerCase().includes(search.toLowerCase())
-  );
+  const filteredEvents = availableEvents.filter((event) => {
+    const q = search.toLowerCase();
+    return (
+      (event.name && event.name.toLowerCase().includes(q)) ||
+      (event.id && event.id.toLowerCase().includes(q)) ||
+      (event.location && event.location.toLowerCase().includes(q)) ||
+      (event.category && event.category.toLowerCase().includes(q))
+    );
+  });
 
   return (
     <>
       <header className="hero">
         <div className="hero-content">
-          <span className="hero-kicker">Live Entertainment</span>
-          <h1 className="hero-title">Find your next experience.</h1>
+          <span className="hero-kicker">Live Available Tickets</span>
+          <h1 className="hero-title">Browse verified live events.</h1>
           <p className="hero-subtitle">
-            Concerts, sports matches, and comedy tours with guaranteed instant ticket confirmation.
+            Only verified tickets with real-time backend inventory availability are displayed.
           </p>
 
           <div className="hero-search-wrap">
@@ -62,7 +34,7 @@ function Events({ onBook }) {
             <input
               type="text"
               className="hero-search-input"
-              placeholder="Search by event, artist, city, or genre..."
+              placeholder="Search by event title, ID, genre, or city..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               aria-label="Search events"
@@ -84,27 +56,48 @@ function Events({ onBook }) {
       <main className="main-content">
         <div className="section-heading">
           <div>
-            <h2>Upcoming Events</h2>
-            <span className="section-subtitle">Real-time inventory available</span>
+            <h2>Available Tickets</h2>
+            <span className="section-subtitle">Real-time Redis inventory stream</span>
           </div>
-          <span className="count-pill">
-            {filteredEvents.length} {filteredEvents.length === 1 ? "event" : "events"}
-          </span>
+
+          <div className="heading-actions">
+            {isAdmin && onOpenAdmin && (
+              <button
+                type="button"
+                className="admin-quick-add-btn"
+                onClick={onOpenAdmin}
+              >
+                + Add Tickets
+              </button>
+            )}
+            <span className="count-pill">
+              {filteredEvents.length} {filteredEvents.length === 1 ? "event" : "events"} available
+            </span>
+          </div>
         </div>
 
-        <div className="event-grid">
-          {filteredEvents.map((event) => (
-            <EventCard
-              key={event.id}
-              event={event}
-              onBook={onBook}
-            />
-          ))}
-        </div>
-
-        {filteredEvents.length === 0 && (
+        {loading ? (
           <div className="empty-search-state">
-            <p className="empty-message">No events found matching "{search}".</p>
+            <p className="empty-message">Connecting to inventory service and checking available tickets...</p>
+          </div>
+        ) : error ? (
+          <div className="empty-search-state error">
+            <p className="empty-message">⚠️ {error}</p>
+          </div>
+        ) : filteredEvents.length > 0 ? (
+          <div className="event-grid">
+            {filteredEvents.map((event) => (
+              <EventCard
+                key={event.id || event.eventId}
+                event={event}
+                onBook={onBook}
+                onEdit={onEdit}
+              />
+            ))}
+          </div>
+        ) : search ? (
+          <div className="empty-search-state">
+            <p className="empty-message">No available tickets matching "{search}".</p>
             <button
               type="button"
               className="secondary-btn"
@@ -112,6 +105,27 @@ function Events({ onBook }) {
             >
               Clear Search
             </button>
+          </div>
+        ) : (
+          <div className="empty-search-state">
+            <div className="empty-state-icon">🎟️</div>
+            <p className="empty-message" style={{ fontWeight: 600, color: "#0f172a" }}>
+              No tickets currently available in inventory
+            </p>
+            <p style={{ color: "#64748b", fontSize: "14px", margin: "4px 0 16px" }}>
+              {isAdmin
+                ? "As an administrator, click '+ Add Tickets' to initialize event tickets into the backend Redis cache."
+                : "All tickets are currently reserved or waiting for release. Check back soon!"}
+            </p>
+            {isAdmin && onOpenAdmin && (
+              <button
+                type="button"
+                className="primary-btn"
+                onClick={onOpenAdmin}
+              >
+                + Add Tickets to Inventory
+              </button>
+            )}
           </div>
         )}
       </main>

@@ -1,6 +1,8 @@
+import { useAuth } from "../context/useAuth";
 import "./EventCard.css";
 
-function EventCard({ event, onBook }) {
+function EventCard({ event, onBook, onEdit }) {
+  const { isAdmin } = useAuth();
   const isSoldOut = typeof event.available === "number" && event.available <= 0;
 
   return (
@@ -10,9 +12,21 @@ function EventCard({ event, onBook }) {
           <span className="category-icon">{event.icon || "🎟️"}</span>
           <span className="category-name">{event.category}</span>
         </div>
-        <span className="event-id-badge" title="Backend Event ID">
-          #{event.id}
-        </span>
+        <div className="card-header-right">
+          {isAdmin && onEdit && (
+            <button
+              type="button"
+              className="admin-edit-chip-btn"
+              onClick={() => onEdit(event)}
+              title="Edit or update tickets for this event"
+            >
+              ✏️ Edit
+            </button>
+          )}
+          <span className="event-id-badge" title="Backend Event ID">
+            #{event.id}
+          </span>
+        </div>
       </div>
 
       <div className="event-info">

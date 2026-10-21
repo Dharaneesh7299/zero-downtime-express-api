@@ -49,12 +49,18 @@ async function startReservationConsumer() {
           }
 
           case "reservation.confirmed": {
-            const result = await prisma.order.updateMany({
+            const result = await prisma.order.upsert({
               where: {
                 reservationId: event.reservationId,
-                status: "PENDING",
               },
-              data: {
+              update: {
+                status: "CONFIRMED",
+              },
+              create: {
+                reservationId: event.reservationId,
+                eventId: event.eventId,
+                userId: event.userId,
+                quantity: event.quantity,
                 status: "CONFIRMED",
               },
             });
@@ -62,8 +68,8 @@ async function startReservationConsumer() {
             console.log(
               "Order confirmed:",
               event.reservationId,
-              "Updated:",
-              result.count
+              "Status:",
+              result.status
             );
             break;
           }
