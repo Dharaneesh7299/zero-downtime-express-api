@@ -3,77 +3,60 @@ const { getChannel } = require("../config/rabbitmq");
 
 const EXCHANGE = "ticket.events";
 
-async function publishReservationExpired(reservation) {
-  const channel = await getChannel();
+async function publishEvent(routingKey, reservation) {
+    const channel = await getChannel();
 
-  const event = {
-    eventType: "reservation.expired",
-    reservationId: reservation.reservationId,
-    eventId: reservation.eventId,
-    userId: reservation.userId,
-    quantity: reservation.quantity,
-    occurredAt: new Date().toISOString(),
-  };
+    const message = {
+        eventType: routingKey,
+        reservationId:
+            reservation.reservationId || reservation.id,
+        eventId: reservation.eventId,
+        userId: reservation.userId,
+        email: reservation.email,
+        quantity: reservation.quantity,
+        status: reservation.status,
+        occurredAt: new Date().toISOString(),
+    };
 
-  const message = Buffer.from(JSON.stringify(event));
-
-  await new Promise((resolve, reject) => {
-    channel.publish(
-      EXCHANGE,
-      "reservation.expired",
-      message,
-      {
-        persistent: true,
-        contentType: "application/json",
-        messageId: reservation.reservationId,
-        type: "reservation.expired",
-      },
-      (error) => {
-        if (error) reject(error);
-        else resolve();
-      }
+    const messageBuffer = Buffer.from(
+        JSON.stringify(message)
     );
-  });
 
-  return event;
+    await new Promise((resolve, reject) => {
+        channel.publish(
+            EXCHANGE,
+            routingKey,
+            messageBuffer,
+            {
+                persistent: true,
+                contentType: "application/json",
+                messageId: message.reservationId,
+                type: routingKey,
+            },
+            (error) => {
+                if (error) reject(error);
+                else resolve();
+            }
+        );
+    });
+
+    return message;
+}
+
+async function publishReservationCreated(reservation) {
+    return publishEvent("reservation.created", reservation);
 }
 
 async function publishReservationConfirmed(reservation) {
-  const channel = await getChannel();
+    return publishEvent("reservation.confirmed", reservation);
+}
 
-  const event = {
-    eventType: "reservation.confirmed",
-    reservationId: reservation.reservationId,
-    eventId: reservation.eventId,
-    userId: reservation.userId,
-    quantity: reservation.quantity,
-    occurredAt: new Date().toISOString(),
-  };
-
-  const message = Buffer.from(JSON.stringify(event));
-
-  await new Promise((resolve, reject) => {
-    channel.publish(
-      EXCHANGE,
-      "reservation.confirmed",
-      message,
-      {
-        persistent: true,
-        contentType: "application/json",
-        messageId: reservation.reservationId,
-        type: "reservation.confirmed",
-      },
-      (error) => {
-        if (error) reject(error);
-        else resolve();
-      }
-    );
-  });
-
-  return event;
+async function publishReservationExpired(reservation) {
+    return publishEvent("reservation.expired", reservation);
 }
 
 module.exports = {
-  publishReservationExpired,
-  publishReservationConfirmed,
+    publishReservationCreated,
+    publishReservationConfirmed,
+    publishReservationExpired,
 };
