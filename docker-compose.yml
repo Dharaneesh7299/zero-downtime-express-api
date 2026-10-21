@@ -1,5 +1,14 @@
 
 services:
+  frontend:
+    build: ./ticket-booking-frontend
+    image: ticket-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - inventory
+    restart: unless-stopped
+
   inventory:
     build: ./services/inventory_service
     image: ticket-inventory
