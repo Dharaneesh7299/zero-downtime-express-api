@@ -39,7 +39,6 @@ async function getChannel() {
   return channel;
 }
 
-
 async function setupReservationMessaging() {
   const channel = await getChannel();
 
@@ -60,6 +59,18 @@ async function setupReservationMessaging() {
     "reservation.created"
   );
 
+  await channel.bindQueue(
+    "order.reservations",
+    "ticket.events",
+    "reservation.expired"
+  );
+
+  await channel.bindQueue(
+    "order.reservations",
+    "ticket.events",
+    "reservation.confirmed"
+  );
+
   console.log("Reservation messaging is ready");
 }
 
@@ -78,7 +89,6 @@ async function closeRabbitMQ() {
     await currentConnection.close();
   }
 }
-
 
 module.exports = {
   connectRabbitMQ,

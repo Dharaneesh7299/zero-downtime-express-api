@@ -3,6 +3,10 @@ const fs = require("fs");
 const path = require("path");
 const redis = require("../config/redis");
 
+const {
+  publishReservationExpired,
+} = require("./reservationEventPublisher");
+
 const scriptPath = path.join(
   __dirname,
   "../scripts/expireReservation.lua"
@@ -55,7 +59,13 @@ async function expireReservation(reservationId) {
   const code = Number(result[0]);
   const reason = String(result[1]);
 
-  if (code === 1) {
+  if (code === 1 && reason === "EXPIRED") {
+    console.log("Publishing expiration event:", reservationId);
+
+    await publishReservationExpired(reservation);
+
+    console.log("Expiration event published:", reservationId);
+
     return {
       expired: true,
       reservationId,

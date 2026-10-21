@@ -1,7 +1,13 @@
+
 const inventoryService = require("../services/inventoryService");
+
 const {
   publishReservationCreated,
 } = require("../services/reservationPublisher");
+
+const {
+  publishReservationConfirmed,
+} = require("../services/reservationEventPublisher");
 
 function validId(value) {
   return (
@@ -54,7 +60,8 @@ async function getInventory(req, res, next) {
       });
     }
 
-    const inventory = await inventoryService.getInventory(eventId);
+    const inventory =
+      await inventoryService.getInventory(eventId);
 
     if (!inventory) {
       return res.status(404).json({
@@ -67,7 +74,6 @@ async function getInventory(req, res, next) {
     next(error);
   }
 }
-
 
 async function reserveTickets(req, res, next) {
   try {
@@ -121,18 +127,20 @@ async function reserveTickets(req, res, next) {
     });
   } catch (error) {
     if (error.code === "INSUFFICIENT_INVENTORY") {
-      return res.status(409).json({ error: error.message });
+      return res.status(409).json({
+        error: error.message,
+      });
     }
 
     if (error.code === "INVENTORY_NOT_INITIALIZED") {
-      return res.status(404).json({ error: error.message });
+      return res.status(404).json({
+        error: error.message,
+      });
     }
 
     return next(error);
   }
 }
-
-
 
 async function getReservation(req, res, next) {
   try {
@@ -153,7 +161,7 @@ async function getReservation(req, res, next) {
       });
     }
 
-    // Only the owner or an administrator can view the reservation.
+    // Only the owner or an administrator can view it.
     if (
       reservation.userId !== req.user.id &&
       req.user.role !== "ADMIN"
@@ -169,10 +177,75 @@ async function getReservation(req, res, next) {
   }
 }
 
+async function confirmReservation(req, res, next) {
+  try {
+    const { reservationId } = req.params;
+
+    if (!validId(reservationId)) {
+      return res.status(400).json({
+        error: "Invalid reservation ID",
+      });
+    }
+
+    // Read the reservation first to validate ownership.
+    const reservation =
+      await inventoryService.getReservation(reservationId);
+
+    if (!reservation) {
+      return res.status(404).json({
+        error: "Reservation not found",
+      });
+    }
+
+    if (
+      reservation.userId !== req.user.id &&
+      req.user.role !== "ADMIN"
+    ) {
+      return res.status(403).json({
+        error: "You are not allowed to confirm this reservation",
+      });
+    }
+
+    // Lua performs the state transition atomically.
+    const result =
+      await inventoryService.confirmReservation(reservationId);
+
+    // Publish only when this request actually confirms it.
+    if (result.message === "CONFIRMED") {
+      const confirmedReservation =
+        await inventoryService.getReservation(reservationId);
+
+      await publishReservationConfirmed(confirmedReservation);
+    }
+
+    return res.status(200).json({
+      message: result.message,
+      reservationId,
+    });
+  } catch (error) {
+    if (error.code === "RESERVATION_NOT_FOUND") {
+      return res.status(404).json({
+        error: error.message,
+      });
+    }
+
+    if (
+      error.code === "RESERVATION_EXPIRED" ||
+      error.code === "RESERVATION_NOT_ACTIVE"
+    ) {
+      return res.status(409).json({
+        error: error.message,
+      });
+    }
+
+    return next(error);
+  }
+}
 
 module.exports = {
   initializeInventory,
   getInventory,
   reserveTickets,
   getReservation,
+  confirmReservation,
 };

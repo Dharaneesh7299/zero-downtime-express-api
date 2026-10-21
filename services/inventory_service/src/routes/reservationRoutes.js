@@ -35,4 +35,12 @@ router.get(
   controller.getReservation
 );
 
+// Only the owner or an administrator can confirm a reservation.
+// Ownership is checked inside the controller.
+router.post(
+  "/reservations/:reservationId/confirm",
+  authenticateToken,
+  controller.confirmReservation
+);
+
 module.exports = router;
