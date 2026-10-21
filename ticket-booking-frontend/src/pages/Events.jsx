@@ -20,7 +20,7 @@ function Events({ onBook }) {
                 return { ...event, available: live.available };
               }
             } catch {
-              // Silently keep mock count if inventory endpoint is not yet initialized
+              // Gracefully keep mock count if inventory endpoint is not yet initialized
             }
             return event;
           })
@@ -42,27 +42,54 @@ function Events({ onBook }) {
   }, []);
 
   const filteredEvents = eventsList.filter((event) =>
-    event.name.toLowerCase().includes(search.toLowerCase())
+    event.name.toLowerCase().includes(search.toLowerCase()) ||
+    event.location.toLowerCase().includes(search.toLowerCase()) ||
+    event.category.toLowerCase().includes(search.toLowerCase())
   );
 
   return (
     <>
       <header className="hero">
-        <h1>Find your next experience.</h1>
-        <p>Concerts, sports, and unforgettable live events.</p>
+        <div className="hero-content">
+          <span className="hero-kicker">Live Entertainment</span>
+          <h1 className="hero-title">Find your next experience.</h1>
+          <p className="hero-subtitle">
+            Concerts, sports matches, and comedy tours with guaranteed instant ticket confirmation.
+          </p>
 
-        <input
-          type="text"
-          placeholder="Search events..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
+          <div className="hero-search-wrap">
+            <span className="search-icon" aria-hidden="true">🔍</span>
+            <input
+              type="text"
+              className="hero-search-input"
+              placeholder="Search by event, artist, city, or genre..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              aria-label="Search events"
+            />
+            {search && (
+              <button
+                type="button"
+                className="clear-search-btn"
+                onClick={() => setSearch("")}
+                aria-label="Clear search"
+              >
+                &times;
+              </button>
+            )}
+          </div>
+        </div>
       </header>
 
       <main className="main-content">
         <div className="section-heading">
-          <h2>Upcoming Events</h2>
-          <span>{filteredEvents.length} events</span>
+          <div>
+            <h2>Upcoming Events</h2>
+            <span className="section-subtitle">Real-time inventory available</span>
+          </div>
+          <span className="count-pill">
+            {filteredEvents.length} {filteredEvents.length === 1 ? "event" : "events"}
+          </span>
         </div>
 
         <div className="event-grid">
@@ -76,7 +103,16 @@ function Events({ onBook }) {
         </div>
 
         {filteredEvents.length === 0 && (
-          <p className="empty-message">No events found.</p>
+          <div className="empty-search-state">
+            <p className="empty-message">No events found matching "{search}".</p>
+            <button
+              type="button"
+              className="secondary-btn"
+              onClick={() => setSearch("")}
+            >
+              Clear Search
+            </button>
+          </div>
         )}
       </main>
     </>

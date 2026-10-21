@@ -32,7 +32,7 @@ export async function loginUser(email, password) {
       "Content-Type": "application/json",
       Accept: "application/json",
     },
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify({ email: email.trim(), password }),
   });
 
   const data = await response.json();
@@ -56,12 +56,33 @@ export async function registerUser(email, password) {
       "Content-Type": "application/json",
       Accept: "application/json",
     },
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify({ email: email.trim(), password }),
   });
 
   const data = await response.json();
   if (!response.ok) {
     throw new Error(data.error || `Registration failed: HTTP ${response.status}`);
+  }
+
+  return data;
+}
+
+/**
+ * Fetch the currently authenticated user's profile.
+ * @param {string} token
+ * @returns {Promise<{ user: { id: string, email: string, role: string } }>}
+ */
+export async function getCurrentUser(token) {
+  const response = await fetch(`${API_BASE_URL}/api/auth/me`, {
+    headers: {
+      Accept: "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error || `Failed to fetch profile: HTTP ${response.status}`);
   }
 
   return data;
@@ -84,7 +105,7 @@ export async function reserveTickets({ eventId, quantity, token, idempotencyKey 
       Authorization: `Bearer ${token}`,
       "Idempotency-Key": idempotencyKey,
     },
-    body: JSON.stringify({ eventId: String(eventId), quantity }),
+    body: JSON.stringify({ eventId: String(eventId), quantity: Number(quantity) }),
   });
 
   const data = await response.json();

@@ -1,27 +1,43 @@
-
 import "./EventCard.css";
 
 function EventCard({ event, onBook }) {
+  const isSoldOut = typeof event.available === "number" && event.available <= 0;
+
   return (
-    <div className="event-card">
-      <img src={event.image} alt={event.name} />
+    <div className={`event-card ${isSoldOut ? "sold-out" : ""}`}>
+      <div className="event-image-wrap">
+        <img src={event.image} alt={event.name} loading="lazy" />
+        <span className="event-badge">{event.category}</span>
+      </div>
 
       <div className="event-info">
-        <span className="event-category">{event.category}</span>
+        <h3 className="event-title">{event.name}</h3>
 
-        <h3>{event.name}</h3>
-
-        <p>📅 {event.date}</p>
-        <p>📍 {event.location}</p>
+        <div className="event-meta">
+          <p className="event-meta-item">
+            <span className="meta-icon">📅</span>
+            <span>{event.date}</span>
+          </p>
+          <p className="event-meta-item">
+            <span className="meta-icon">📍</span>
+            <span>{event.location}</span>
+          </p>
+        </div>
 
         <div className="event-bottom">
-          <div>
-            <h3>₹{event.price.toLocaleString("en-IN")}</h3>
-            <small>{event.available} tickets left</small>
+          <div className="event-pricing">
+            <span className="event-price">₹{event.price.toLocaleString("en-IN")}</span>
+            <small className="event-availability">
+              {isSoldOut ? "Sold Out" : `${event.available} tickets left`}
+            </small>
           </div>
 
-          <button onClick={() => onBook(event)}>
-            Book Tickets
+          <button
+            className="book-btn"
+            onClick={() => onBook(event)}
+            disabled={isSoldOut}
+          >
+            {isSoldOut ? "Unavailable" : "Book Tickets"}
           </button>
         </div>
       </div>
