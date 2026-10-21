@@ -1,49 +1,49 @@
-
+// Event catalogue matching backend event IDs
 const events = [
   {
-    id: 1,
-    name: "Arijit Singh Live",
+    id: "concert101",
+    name: "Arijit Singh Live in Concert",
     category: "Concert",
+    icon: "🎵",
     date: "25 Oct 2026",
-    location: "Chennai",
+    location: "Jawaharlal Nehru Stadium, Chennai",
     price: 2999,
-    available: 120,
-    image:
-      "https://images.unsplash.com/photo-1501386761578-eac5c94b800a?w=800"
+    available: 100,
+    type: "VIP & General Admission",
   },
   {
-    id: 2,
-    name: "India vs Australia",
+    id: "cricket102",
+    name: "India vs Australia T20 Trophy",
     category: "Cricket",
+    icon: "🏏",
     date: "02 Nov 2026",
-    location: "Chennai",
+    location: "M. A. Chidambaram Stadium, Chennai",
     price: 1499,
     available: 85,
-    image:
-      "https://images.unsplash.com/photo-1531415074968-036ba1b575da?w=800"
+    type: "Pavilion & Stand Passes",
   },
   {
-    id: 3,
-    name: "Standup Comedy Night",
+    id: "comedy103",
+    name: "All-Star Standup Comedy Night",
     category: "Comedy",
+    icon: "🎭",
     date: "08 Nov 2026",
-    location: "Coimbatore",
+    location: "Kavundampalayam Hall, Coimbatore",
     price: 799,
     available: 45,
-    image:
-      "https://images.unsplash.com/photo-1585699324551-f6c309eedeca?w=800"
+    type: "Seated Auditorium",
   },
   {
-    id: 4,
-    name: "Live Music Festival",
-    category: "Music",
+    id: "festival104",
+    name: "Echoes of India Music Festival",
+    category: "Festival",
+    icon: "🎪",
     date: "15 Nov 2026",
-    location: "Bengaluru",
+    location: "Palace Grounds, Bengaluru",
     price: 1999,
-    available: 200,
-    image:
-      "https://images.unsplash.com/photo-1459749411175-04bf5292ceea?w=800"
-  }
+    available: 150,
+    type: "Full Day Festival Pass",
+  },
 ];
 
 export default events;

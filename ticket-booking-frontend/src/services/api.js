@@ -6,17 +6,21 @@ import { API_BASE_URL } from "../config/api";
  * @returns {Promise<{ eventId: string, available: number }>}
  */
 export async function fetchInventory(eventId) {
-  const response = await fetch(`${API_BASE_URL}/api/events/${eventId}/inventory`, {
-    headers: {
-      Accept: "application/json",
-    },
-  });
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/events/${eventId}/inventory`, {
+      headers: {
+        Accept: "application/json",
+      },
+    });
 
-  if (!response.ok) {
-    throw new Error(`Inventory fetch failed: HTTP ${response.status}`);
+    if (!response.ok) {
+      return null;
+    }
+
+    return await response.json();
+  } catch {
+    return null;
   }
-
-  return response.json();
 }
 
 /**

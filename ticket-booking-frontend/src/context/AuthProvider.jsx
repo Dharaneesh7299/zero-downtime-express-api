@@ -66,12 +66,19 @@ export function AuthProvider({ children }) {
     getCurrentUser(token)
       .then((data) => {
         if (isMounted && data?.user) {
-          setUser(data.user);
-          try {
-            localStorage.setItem(STORAGE_USER_KEY, JSON.stringify(data.user));
-          } catch {
-            // Ignore
-          }
+          setUser((prev) => {
+            const merged = {
+              ...(prev || {}),
+              ...data.user,
+              email: data.user.email || prev?.email || "",
+            };
+            try {
+              localStorage.setItem(STORAGE_USER_KEY, JSON.stringify(merged));
+            } catch {
+              // Ignore
+            }
+            return merged;
+          });
         }
       })
       .catch(() => {

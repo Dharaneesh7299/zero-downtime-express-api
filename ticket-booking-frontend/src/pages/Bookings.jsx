@@ -10,7 +10,9 @@ function Bookings({ bookings }) {
         <div>
           <h2>My Bookings</h2>
           {isAuthenticated && (
-            <span className="user-email-subtitle">Logged in as {user?.email}</span>
+            <span className="user-email-subtitle">
+              Logged in as {user?.email || (user?.id ? `User #${user.id.slice(0, 6)}` : "My Account")}
+            </span>
           )}
         </div>
         <span className="count-pill">{bookings.length} {bookings.length === 1 ? "booking" : "bookings"}</span>

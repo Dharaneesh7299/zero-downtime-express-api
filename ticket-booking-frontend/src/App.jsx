@@ -20,6 +20,10 @@ function AppContent() {
   const [bookingError, setBookingError] = useState("");
   const [toastMessage, setToastMessage] = useState("");
 
+  const userEmail = user?.email || "";
+  const userInitial = (userEmail ? userEmail[0] : (user?.role ? user.role[0] : "U")).toUpperCase();
+  const userDisplay = userEmail || (user?.id ? `User #${user.id.slice(0, 6)}` : "My Account");
+
   const [bookings, setBookings] = useState(() => {
     try {
       const stored = localStorage.getItem(STORAGE_BOOKINGS_KEY);
@@ -163,11 +167,11 @@ function AppContent() {
           <div className="nav-auth-section">
             {isAuthenticated ? (
               <div className="user-profile-menu">
-                <div className="user-chip" title={user.email}>
+                <div className="user-chip" title={userDisplay}>
                   <span className="user-avatar-circle">
-                    {user.email.charAt(0).toUpperCase()}
+                    {userInitial}
                   </span>
-                  <span className="user-email-text">{user.email}</span>
+                  <span className="user-email-text">{userDisplay}</span>
                 </div>
                 <button
                   type="button"
@@ -308,7 +312,7 @@ function AppContent() {
             ) : (
               <div className="modal-actions">
                 <div className="user-order-tag">
-                  Reserving for: <strong>{user.email}</strong>
+                  Reserving for: <strong>{userDisplay}</strong>
                 </div>
                 <button
                   type="button"

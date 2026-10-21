@@ -91,10 +91,24 @@ async function login(req, res, next) {
   }
 }
 
-function getCurrentUser(req, res) {
-  return res.status(200).json({
-    user: req.user,
-  });
+async function getCurrentUser(req, res, next) {
+  try {
+    const prisma = require("../config/prisma");
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.id },
+      select: {
+        id: true,
+        email: true,
+        role: true,
+      },
+    });
+
+    return res.status(200).json({
+      user: user || req.user,
+    });
+  } catch (error) {
+    return next(error);
+  }
 }
 
 module.exports = {

@@ -5,9 +5,14 @@ function EventCard({ event, onBook }) {
 
   return (
     <div className={`event-card ${isSoldOut ? "sold-out" : ""}`}>
-      <div className="event-image-wrap">
-        <img src={event.image} alt={event.name} loading="lazy" />
-        <span className="event-badge">{event.category}</span>
+      <div className="event-card-header">
+        <div className="event-category-chip">
+          <span className="category-icon">{event.icon || "🎟️"}</span>
+          <span className="category-name">{event.category}</span>
+        </div>
+        <span className="event-id-badge" title="Backend Event ID">
+          #{event.id}
+        </span>
       </div>
 
       <div className="event-info">
@@ -22,22 +27,29 @@ function EventCard({ event, onBook }) {
             <span className="meta-icon">📍</span>
             <span>{event.location}</span>
           </p>
+          {event.type && (
+            <p className="event-meta-item">
+              <span className="meta-icon">🎫</span>
+              <span>{event.type}</span>
+            </p>
+          )}
         </div>
 
         <div className="event-bottom">
           <div className="event-pricing">
             <span className="event-price">₹{event.price.toLocaleString("en-IN")}</span>
-            <small className="event-availability">
-              {isSoldOut ? "Sold Out" : `${event.available} tickets left`}
+            <small className={`event-availability ${isSoldOut ? "empty" : ""}`}>
+              {isSoldOut ? "Sold Out" : `${event.available} tickets available`}
             </small>
           </div>
 
           <button
+            type="button"
             className="book-btn"
             onClick={() => onBook(event)}
             disabled={isSoldOut}
           >
-            {isSoldOut ? "Unavailable" : "Book Tickets"}
+            {isSoldOut ? "Sold Out" : "Book Tickets"}
           </button>
         </div>
       </div>
