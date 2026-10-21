@@ -1,21 +1,31 @@
+
 require("dotenv").config();
 
 const app = require("./app");
 const redis = require("./config/redis");
+const {
+  connectRabbitMQ,
+  setupReservationMessaging,
+} = require("./config/rabbitmq");
 
 const PORT = Number(process.env.PORT || 4001);
 
 async function startServer() {
-  try {
-    await redis.connect();
+  let server;
 
+  try {
+    // Connect to Redis.
+    await redis.connect();
     await redis.ping();
     console.log("Connected to Redis");
 
-    const server = app.listen(PORT, () => {
-      console.log(
-        `Inventory service running on port ${PORT}`
-      );
+    // Connect to RabbitMQ and declare messaging resources.
+    await connectRabbitMQ();
+    await setupReservationMessaging();
+
+    // Start Express only after dependencies are ready.
+    server = app.listen(PORT, () => {
+      console.log(`Inventory service running on port ${PORT}`);
     });
 
     async function shutdown() {
@@ -23,6 +33,10 @@ async function startServer() {
 
       server.close(async () => {
         try {
+          const { closeRabbitMQ } = require("./config/rabbitmq");
+
+          await closeRabbitMQ();
+
           if (redis.isOpen) {
             await redis.quit();
           }
@@ -35,10 +49,14 @@ async function startServer() {
       });
     }
 
-    process.on("SIGTERM", shutdown);
-    process.on("SIGINT", shutdown);
+    process.once("SIGTERM", shutdown);
+    process.once("SIGINT", shutdown);
   } catch (error) {
     console.error("Failed to start service:", error.message);
+
+    const { closeRabbitMQ } = require("./config/rabbitmq");
+
+    await closeRabbitMQ().catch(() => {});
 
     if (redis.isOpen) {
       await redis.quit().catch(() => {});

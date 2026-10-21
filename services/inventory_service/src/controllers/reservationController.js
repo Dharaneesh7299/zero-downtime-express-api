@@ -1,4 +1,7 @@
 const inventoryService = require("../services/inventoryService");
+const {
+  publishReservationCreated,
+} = require("../services/reservationPublisher");
 
 function validId(value) {
   return (
@@ -105,6 +108,10 @@ async function reserveTickets(req, res, next) {
       quantity,
       idempotencyKey,
     });
+
+    if (result.created) {
+      await publishReservationCreated(result.reservation);
+    }
 
     return res.status(result.created ? 201 : 200).json({
       message: result.created
